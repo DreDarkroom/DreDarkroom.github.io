@@ -1,152 +1,46 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Flux-Point Protocol</title>
-    <style>
-        body { margin: 0; background: #0a0e14; color: #00f2ff; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; }
-        #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; }
-        canvas { display: block; touch-action: none; }
-        .stat-box { background: rgba(0, 242, 255, 0.1); border-left: 4px solid #00f2ff; padding: 10px 15px; }
-        .label { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8; }
-        .value { font-size: 24px; font-weight: bold; font-variant-numeric: tabular-nums; }
-        #instruction { margin-top: 10px; font-size: 14px; color: #fff; opacity: 0.6; }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DreDarkroom — Games</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 2rem; background:#0f1724; color:#e6eef8; }
+    .card { background:#0b1220; border:1px solid rgba(255,255,255,0.04); padding:1rem; border-radius:8px; max-width:720px; margin:0 auto; }
+    h1 { margin-top:0; }
+    ul { list-style:none; padding:0; }
+    a { color:#7dd3fc; text-decoration:none; }
+    a.button {
+      display:inline-block; padding:0.5rem 0.75rem; background:#0ea5a6; color:#042027; border-radius:6px; margin-top:0.5rem;
+      text-decoration:none; font-weight:600;
+    }
+    .meta { font-size:0.9rem; color:#9fb3c8; margin-bottom:0.75rem; }
+  </style>
 </head>
 <body>
-    <div id="ui">
-        <div class="stat-box">
-            <div class="label">Neon-Flux</div>
-            <div class="value" id="flux-count">0</div>
-        </div>
-        <div id="instruction">Select Sentinel, then tap Flux-Point to capture</div>
-    </div>
-    <canvas id="gameCanvas"></canvas>
+  <main class="card" role="main">
+    <h1>DreDarkroom — Games</h1>
+    <p class="meta">Choose a version to play. You can return to this index at any time.</p>
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const fluxEl = document.getElementById('flux-count');
+    <ul>
+      <li>
+        <strong>Version 1</strong><br />
+        The original release of the game (renamed from the previous root file).<br />
+        <a class="button" href="./index_v1.html">Play Version 1</a>
+      </li>
 
-        let flux = 0;
-        let activeSentinel = null;
-        
-        // Map Nodes (The Capture Points)
-        const nodes = [
-            { x: 0.5, y: 0.25, radius: 45, state: 'neutral', pulse: 0 },
-            { x: 0.5, y: 0.5, radius: 45, state: 'neutral', pulse: 0 },
-            { x: 0.5, y: 0.75, radius: 45, state: 'neutral', pulse: 0 }
-        ];
+      <li style="margin-top:1rem;">
+        <strong>Flux v2</strong><br />
+        The updated Flux release (newer version).<br />
+        <a class="button" href="./flux.html">Play Flux v2</a>
+      </li>
+    </ul>
 
-        const sentinels = [
-            { id: 1, x: 80, y: 300, targetX: 80, targetY: 300, color: '#00f2ff', size: 18 }
-        ];
+    <hr style="margin:1.5rem 0; border-color: rgba(255,255,255,0.04)">
 
-        function init() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-
-        function update() {
-            flux += 0.08;
-            fluxEl.innerText = Math.floor(flux);
-
-            sentinels.forEach(s => {
-                const dx = s.targetX - s.x;
-                const dy = s.targetY - s.y;
-                if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-                    s.x += dx * 0.07;
-                    s.y += dy * 0.07;
-                }
-
-                // Node Alignment Logic
-                nodes.forEach(n => {
-                    const dist = Math.hypot(s.x - (n.x * canvas.width), s.y - (n.y * canvas.height));
-                    if (dist < n.radius) n.state = 'aligned';
-                });
-            });
-
-            // Pulse Animation
-            nodes.forEach(n => {
-                n.pulse += 0.05;
-            });
-        }
-
-        function draw() {
-            // Draw Grid Background
-            ctx.fillStyle = '#0a0e14';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.strokeStyle = '#16212e';
-            ctx.lineWidth = 1;
-            for(let i=0; i<canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
-            for(let j=0; j<canvas.height; j+=40) { ctx.beginPath(); ctx.moveTo(0,j); ctx.lineTo(canvas.width,j); ctx.stroke(); }
-
-            // Draw Nodes
-            nodes.forEach(n => {
-                const nx = n.x * canvas.width;
-                const ny = n.y * canvas.height;
-                const pulseSize = n.radius + Math.sin(n.pulse) * 5;
-
-                ctx.beginPath();
-                ctx.arc(nx, ny, pulseSize, 0, Math.PI * 2);
-                ctx.strokeStyle = n.state === 'aligned' ? '#00f2ff' : '#334155';
-                ctx.setLineDash([5, 5]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-
-                if (n.state === 'aligned') {
-                    ctx.fillStyle = 'rgba(0, 242, 255, 0.15)';
-                    ctx.fill();
-                }
-            });
-
-            // Draw Sentinels
-            sentinels.forEach(s => {
-                // Glow effect
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = s.color;
-                
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-                ctx.fillStyle = s.color;
-                ctx.fill();
-                
-                ctx.shadowBlur = 0; // Reset shadow
-
-                if (activeSentinel === s) {
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
-                }
-            });
-        }
-
-        function loop() {
-            update();
-            draw();
-            requestAnimationFrame(loop);
-        }
-
-        canvas.addEventListener('pointerdown', (e) => {
-            const tapX = e.clientX;
-            const tapY = e.clientY;
-            
-            // Check if tapping a Sentinel
-            const clickedS = sentinels.find(s => Math.hypot(s.x - tapX, s.y - tapY) < 40);
-            
-            if (clickedS) {
-                activeSentinel = clickedS;
-            } else if (activeSentinel) {
-                activeSentinel.targetX = tapX;
-                activeSentinel.targetY = tapY;
-            }
-        });
-
-        window.addEventListener('resize', init);
-        init();
-        loop();
-    </script>
+    <p style="font-size:0.9rem; color:#9fb3c8;">
+      If you want different labels or different filenames, tell me how you want them named and I will apply the rename and add the new index file.
+    </p>
+  </main>
 </body>
 </html>
-

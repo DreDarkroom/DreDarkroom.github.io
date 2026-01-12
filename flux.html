@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Flux-Point: Audio Update</title>
+    <style>
+        body { margin: 0; background: #050505; color: #00f2ff; font-family: 'Courier New', Courier, monospace; overflow: hidden; user-select: none; }
+        canvas { display: block; touch-action: none; }
+        
+        /* UI Layer */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        /* Top Bar */
+        .top-bar { display: flex; justify-content: space-between; padding: 15px; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); }
+        .resource-box { border: 1px solid #00f2ff; padding: 5px 15px; background: rgba(0, 242, 255, 0.1); box-shadow: 0 0 10px rgba(0, 242, 255, 0.2); }
+        .res-label { font-size: 10px; opacity: 0.7; }
+        .res-val { font-size: 20px; font-weight: bold; }
+
+        /* Bottom Bar */
+        .bottom-bar { padding: 20px; display: flex; gap: 10px; pointer-events: auto; align-items: flex-end; }
+        
+        /* Buttons */
+        .btn { 
+            background: #002233; border: 1px solid #00f2ff; color: #00f2ff; 
+            padding: 15px 25px; font-size: 16px; font-weight: bold; 
+            text-transform: uppercase; border-radius: 4px; 
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
+            active: scale(0.95);
+        }
+        .btn:active { background: #00f2ff; color: black; }
+        .btn:disabled { opacity: 0.3; border-color: #555; color: #555; }
+
+        /* Audio Toggle */
+        #audio-btn { position: absolute; top: 15px; right: 15px; font-size: 20px; pointer-events: auto; cursor: pointer; }
+
+        /* Start Screen Overlay */
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 10;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            pointer-events: auto;
+        }
+        .title { font-size: 30px; margin-bottom: 20px; text-shadow: 0 0 20px #00f2ff; text-align: center;}
+        .start-btn { 
+            padding: 20px 40px; background: #00f2ff; color: black; font-weight: bold; font-size: 20px; 
+            border: none; cursor: pointer; animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <div class="title">FLUX-POINT<br><span style="font-size:16px; color: #aaa;">PROTOCOL</span></div>
+        <button class="start-btn" onclick="startGame()">INITIALIZE SYSTEM</button>
+        <p style="margin-top:20px; color: #666; font-size: 12px;">Enable Audio for full experience</p>
+    </div>
+
+    <div id="ui-layer">
+        <div class="top-bar">
+            <div class="resource-box">
+                <div class="res-label">FLUX RESERVES</div>
+                <div class="res-val" id="flux-display">0</div>
+            </div>
+            <div id="audio-btn" onclick="toggleMusic()">🔊</div>
+        </div>
+        <div class="bottom-bar">
+            <button class="btn" id="spawn-btn" onclick="spawnUnit()">DEPLOY SENTINEL<br><span style="font-size:10px">(50 FLUX)</span></button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // --- AUDIO ENGINE (Synthesizer) ---
+        let audioCtx;
+        let isMuted = false;
+        let nextNoteTime = 0;
+        let noteIndex = 0;
+        const tempo = 170; // DnB Speed
+        const lookahead = 25.0;
+        const scheduleAheadTime = 0.1;
+        let isPlaying = false;
+
+        function initAudio() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            nextNoteTime = audioCtx.currentTime;
+            isPlaying = true;
+            scheduler();
+        }
+
+        function playSound(type) {
+            if (isMuted || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'select') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'move') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            } else if (type === 'spawn') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(110, now);
+                osc.frequency.linearRampToValueAtTime(55, now + 0.3);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        }
+
+        // --- MUSIC SEQUENCER (DnB Pattern) ---
+        function playDrum(time, type) {
+            if (isMuted) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'kick') {
+                osc.frequency.setValueAtTime(150, time);
+                osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+                gain.gain.setValueAtTime(0.5, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+                osc.start(time);
+                osc.stop(time + 0.5);
+            } else if (type === 'snare') {
+                // Noise buffer for snare
+                const bufferSize = audioCtx.sampleRate * 0.1; // 100ms
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+                
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                const noiseGain = audioCtx.createGain();
+                noise.connect(noiseGain);
+                noiseGain.connect(audioCtx.destination);
+                noiseGain.gain.setValueAtTime(0.3, time);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+                noise.start(time);
+            } else if (type === 'bass') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(55, time); // Low A
+                gain.gain.setValueAtTime(0.2, time);
+                gain.gain.linearRampToValueAtTime(0.01, time + 0.2);
+                osc.start(time);
+                osc.stop(time + 0.2);
+            } else if (type === 'lead') {
+                osc.type = 'square';
+                // Arpeggio notes
+                const notes = [440, 554, 659, 880]; 
+                const pitch = notes[Math.floor(Math.random() * notes.length)];
+                osc.frequency.setValueAtTime(pitch, time);
+                gain.gain.setValueAtTime(0.05, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+                osc.start(time);
+                osc.stop(time + 0.1);
+            }
+        }
+
+        function scheduleNote(beatNumber, time) {
+            const secondsPerBeat = 60.0 / tempo;
+            // DnB Breakbeat Pattern (16 steps)
+            // K = Kick, S = Snare, - = Empty
+            const kickPattern =  [1,0,0,0, 0,0,1,0, 0,0,1,0, 0,0,0,0];
+            const snarePattern = [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0];
+            const bassPattern =  [1,0,1,0, 0,0,1,0, 1,0,1,0, 0,0,0,0];
+
+            const step = beatNumber % 16;
+
+            if (kickPattern[step]) playDrum(time, 'kick');
+            if (snarePattern[step]) playDrum(time, 'snare');
+            if (bassPattern[step]) playDrum(time, 'bass');
+            
+            // Random spacey arps on off-beats
+            if (Math.random() > 0.7) playDrum(time, 'lead');
+        }
+
+        function scheduler() {
+            const secondsPerBeat = 60.0 / tempo;
+            const stepsPerBeat = 4; // 16th notes
+            const stepTime = secondsPerBeat / stepsPerBeat;
+
+            while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+                scheduleNote(noteIndex, nextNoteTime);
+                nextNoteTime += stepTime;
+                noteIndex++;
+            }
+            if (isPlaying) requestAnimationFrame(scheduler);
+        }
+
+        function toggleMusic() {
+            isMuted = !isMuted;
+            document.getElementById('audio-btn').innerText = isMuted ? '🔇' : '🔊';
+        }
+
+        // --- GAME LOGIC ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const fluxDisplay = document.getElementById('flux-display');
+        const spawnBtn = document.getElementById('spawn-btn');
+
+        let flux = 10;
+        let selectedUnit = null;
+        let targetAnim = null; // {x, y, age}
+
+        const nodes = [
+            { x: 0.5, y: 0.2, radius: 40, captured: false, progress: 0 },
+            { x: 0.2, y: 0.5, radius: 40, captured: false, progress: 0 },
+            { x: 0.8, y: 0.5, radius: 40, captured: false, progress: 0 },
+            { x: 0.5, y: 0.8, radius: 40, captured: false, progress: 0 }
+        ];
+
+        const units = [];
+
+        function startGame() {
+            document.getElementById('overlay').style.display = 'none';
+            initAudio();
+            initGame();
+        }
+
+        function initGame() {
+            resize();
+            // Start with one unit
+            units.push({ x: canvas.width/2, y: canvas.height - 50, tx: canvas.width/2, ty: canvas.height - 50, color: '#00f2ff' });
+            loop();
+        }
+
+        function spawnUnit() {
+            if (flux >= 50) {
+                flux -= 50;
+                playSound('spawn');
+                units.push({ 
+                    x: canvas.width / 2, 
+                    y: canvas.height - 20, 
+                    tx: canvas.width / 2, 
+                    ty: canvas.height - 100, // Walk out a bit
+                    color: '#00f2ff' 
+                });
+            }
+        }
+
+        function update() {
+            flux += 0.05;
+            fluxDisplay.innerText = Math.floor(flux);
+
+            // Update Buttons
+            spawnBtn.disabled = flux < 50;
+
+            // Move Units
+            units.forEach(u => {
+                const dx = u.tx - u.x;
+                const dy = u.ty - u.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist > 2) {
+                    u.x += dx * 0.05;
+                    u.y += dy * 0.05;
+                }
+
+                // Capture Logic
+                nodes.forEach(n => {
+                    const dNode = Math.hypot(u.x - (n.x * canvas.width), u.y - (n.y * canvas.height));
+                    if (dNode < n.radius) {
+                        n.progress += 0.5;
+                        if (n.progress > 100) { n.progress = 100; n.captured = true; }
+                    }
+                });
+            });
+        }
+
+        function draw() {
+            // Background Grid
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#112233';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            const offset = (Date.now() / 50) % gridSize; // Moving grid effect
+            
+            for(let i=0; i<canvas.width; i+=gridSize) { 
+                ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); 
+            }
+            for(let j=offset; j<canvas.height; j+=gridSize) { 
+                ctx.beginPath(); ctx.moveTo(0,j); ctx.lineTo(canvas.width,j); ctx.stroke(); 
+            }
+
+            // Draw Nodes
+            nodes.forEach(n => {
+                const nx = n.x * canvas.width;
+                const ny = n.y * canvas.height;
+                
+                ctx.beginPath();
+                ctx.arc(nx, ny, n.radius, 0, Math.PI*2);
+                ctx.strokeStyle = n.captured ? '#00f2ff' : '#444';
+                ctx.lineWidth = 2;
+                ctx.setLineDash(n.captured ? [] : [5,5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Progress Fill
+                if (n.progress > 0) {
+                    ctx.beginPath();
+                    ctx.arc(nx, ny, n.radius * (n.progress/100), 0, Math.PI*2);
+                    ctx.fillStyle = 'rgba(0, 242, 255, 0.3)';
+                    ctx.fill();
+                }
+            });
+
+            // Target Animation
+            if (targetAnim) {
+                targetAnim.age++;
+                if (targetAnim.age < 20) {
+                    ctx.save();
+                    ctx.translate(targetAnim.x, targetAnim.y);
+                    ctx.rotate(targetAnim.age * 0.5);
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(-10, -10); ctx.lineTo(10, 10);
+                    ctx.moveTo(10, -10); ctx.lineTo(-10, 10);
+                    ctx.stroke();
+                    ctx.restore();
+                } else {
+                    targetAnim = null;
+                }
+            }
+
+            // Draw Units
+            units.forEach(u => {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = u.color;
+                ctx.fillStyle = u.color;
+                ctx.beginPath();
+                ctx.arc(u.x, u.y, 10, 0, Math.PI*2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                if (u === selectedUnit) {
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        // Controls
+        canvas.addEventListener('pointerdown', (e) => {
+            const x = e.clientX;
+            const y = e.clientY;
+            let clickedUnit = false;
+
+            // Select Unit
+            units.forEach(u => {
+                if (Math.hypot(u.x - x, u.y - y) < 30) {
+                    selectedUnit = u;
+                    clickedUnit = true;
+                    playSound('select');
+                }
+            });
+
+            // Move Unit
+            if (!clickedUnit && selectedUnit) {
+                selectedUnit.tx = x;
+                selectedUnit.ty = y;
+                targetAnim = { x: x, y: y, age: 0 };
+                playSound('move');
+            }
+        });
+
+        window.addEventListener('resize', resize);
+
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>SPACE RIVALS: Eclipse Sector</title>
+    <style>
+        body { margin: 0; background: #000; color: #00ffcc; overflow: hidden; font-family: monospace; }
+        canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
+        
+        /* THE START OVERLAY */
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .glow-btn {
+            background: #003344; border: 2px solid #00ffcc; color: #00ffcc;
+            padding: 25px 50px; font-size: 20px; font-weight: bold;
+            box-shadow: 0 0 20px #00ffcc; cursor: pointer; text-transform: uppercase;
+        }
+        
+        /* HUD & DIALOGUE */
+        #hud { position: fixed; top: 0; left: 0; width: 100%; z-index: 10; display: none; pointer-events: none; }
+        #dialogue-box { 
+            position: fixed; bottom: 20px; left: 5%; width: 90%; 
+            background: rgba(0,20,40,0.9); border: 2px solid #00ffcc;
+            padding: 15px; z-index: 20; display: none; pointer-events: auto;
+        }
+        #error-log { position: fixed; bottom: 0; width: 100%; font-size: 10px; color: red; z-index: 1000; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <div id="error-log"></div>
+
+    <div id="start-screen">
+        <h1 style="margin:0">SPACE RIVALS</h1>
+        <p style="letter-spacing:4px; margin-bottom:40px">ECLIPSE SECTOR</p>
+        <button id="main-btn" class="glow-btn">START ENGINE</button>
+    </div>
+
+    <div id="hud">
+        <div style="padding:15px; font-size:24px;">⚡ <span id="flux-val">0</span></div>
+        <button id="spawn-btn" style="position:fixed; bottom:20px; right:20px; width:70px; height:70px; border-radius:50%; background:#003344; border:2px solid #00ffcc; color:#00ffcc; pointer-events:auto;">DEPLOY</button>
+    </div>
+
+    <div id="dialogue-box">
+        <div id="speaker" style="font-weight:bold; color:#00ffcc; font-size:12px">COMMANDER VEX</div>
+        <div id="text" style="color:white; margin:5px 0">...</div>
+        <div style="text-align:right; font-size:10px">TAP TO CONTINUE ▼</div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // --- LOGGING ---
+        function log(msg) { document.getElementById('error-log').innerText += msg + " | "; }
+
+        // --- CORE VARIABLES ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let state = 'START';
+        let flux = 0;
+        let units = [];
+        let nodes = [{x:0.5, y:0.4, r:40, progress:0, owner:0}];
+        let stars = [];
+        let selectedUnit = null;
+
+        // --- BUTTON HANDLER ---
+        function handleStart() {
+            try {
+                log("Click Detected");
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('hud').style.display = 'block';
+                
+                // Initialize Stars
+                for(let i=0; i<50; i++) stars.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height, v: Math.random()*3+1});
+                
+                // Initialize Unit
+                units.push({x: canvas.width/2, y: canvas.height-100, tx: canvas.width/2, ty: canvas.height-100});
+                
+                state = 'PLAY';
+                document.getElementById('dialogue-box').style.display = 'block';
+                document.getElementById('text').innerText = "Pilot, move to the center node to begin harvesting Flux.";
+                
+                log("Game Init Success");
+                loop();
+            } catch(e) { log("Error: " + e.message); }
+        }
+
+        const mainBtn = document.getElementById('main-btn');
+        mainBtn.addEventListener('click', handleStart);
+        mainBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(); });
+
+        // --- GAME LOOP ---
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        function update() {
+            flux += 0.05;
+            document.getElementById('flux-val').innerText = Math.floor(flux);
+
+            stars.forEach(s => {
+                s.y += s.v;
+                if(s.y > canvas.height) s.y = 0;
+            });
+
+            units.forEach(u => {
+                u.x += (u.tx - u.x) * 0.1;
+                u.y += (u.ty - u.y) * 0.1;
+
+                nodes.forEach(n => {
+                    let d = Math.hypot(u.x - n.x*canvas.width, u.y - n.y*canvas.height);
+                    if(d < n.r) {
+                        n.progress = Math.min(100, n.progress + 0.5);
+                        if(n.progress === 100) n.owner = 1;
+                    }
+                });
+            });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+
+            // Stars
+            ctx.fillStyle = '#fff';
+            stars.forEach(s => ctx.fillRect(s.x, s.y, 2, 2));
+
+            // Nodes
+            nodes.forEach(n => {
+                ctx.beginPath();
+                ctx.arc(n.x*canvas.width, n.y*canvas.height, n.r, 0, Math.PI*2);
+                ctx.strokeStyle = n.owner ? '#00ffcc' : '#333';
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(0,255,204,0.2)';
+                ctx.beginPath();
+                ctx.arc(n.x*canvas.width, n.y*canvas.height, n.r * (n.progress/100), 0, Math.PI*2);
+                ctx.fill();
+            });
+
+            // Units
+            units.forEach(u => {
+                ctx.fillStyle = (u === selectedUnit) ? '#fff' : '#00aadd';
+                ctx.beginPath();
+                ctx.moveTo(u.x, u.y-15);
+                ctx.lineTo(u.x+10, u.y+10);
+                ctx.lineTo(u.x-10, u.y+10);
+                ctx.fill();
+            });
+        }
+
+        // --- INPUTS ---
+        canvas.addEventListener('pointerdown', (e) => {
+            const u = units.find(u => Math.hypot(u.x - e.clientX, u.y - e.clientY) < 40);
+            if(u) selectedUnit = u;
+            else if(selectedUnit) {
+                selectedUnit.tx = e.clientX;
+                selectedUnit.ty = e.clientY;
+            }
+        });
+
+        document.getElementById('dialogue-box').addEventListener('click', () => {
+            document.getElementById('dialogue-box').style.display = 'none';
+        });
+
+        document.getElementById('spawn-btn').addEventListener('click', () => {
+            if(flux >= 50) {
+                flux -= 50;
+                units.push({x: canvas.width/2, y: canvas.height, tx: canvas.width/2, ty: canvas.height-100});
+            }
+        });
+
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.onresize = resize;
+        resize();
+    </script>
+</body>
+</html>

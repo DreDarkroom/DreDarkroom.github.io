@@ -4,345 +4,179 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>SPACE RIVALS: Eclipse Sector</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', monospace; user-select: none; -webkit-user-select: none; }
-        canvas { display: block; }
+        body { margin: 0; background: #000; color: #00ffcc; overflow: hidden; font-family: monospace; }
+        canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
         
-        /* UI LAYERS */
-        #cinematic-layer, #ui-layer, #tutorial-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
-        }
-        
-        /* START SCREEN */
+        /* THE START OVERLAY */
         #start-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 100;
-            display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         .glow-btn {
-            background: transparent; border: 2px solid #00ffcc; color: #00ffcc;
-            padding: 20px 40px; font-size: 18px; font-weight: bold; cursor: pointer;
-            box-shadow: 0 0 15px #00ffcc; text-transform: uppercase;
-            animation: pulse 2s infinite; touch-action: manipulation;
+            background: #003344; border: 2px solid #00ffcc; color: #00ffcc;
+            padding: 25px 50px; font-size: 20px; font-weight: bold;
+            box-shadow: 0 0 20px #00ffcc; cursor: pointer; text-transform: uppercase;
         }
-
-        /* CINEMATICS */
-        #cinematic-text {
-            position: absolute; width: 80%; left: 10%; text-align: center;
-            color: #00ffcc; font-size: 18px; line-height: 1.6;
-            text-shadow: 0 0 10px #00ffcc; opacity: 0; transition: opacity 1s;
-            top: 40%; transform: translateY(-50%);
-        }
-        .skip-btn {
-            position: absolute; bottom: 20px; right: 20px; color: #555; border: 1px solid #555;
-            padding: 10px; pointer-events: auto; font-size: 12px;
-        }
-
-        /* DIALOGUE BOX */
-        #dialogue-box {
-            position: absolute; bottom: 20px; left: 5%; width: 90%;
-            background: rgba(0, 20, 30, 0.95); border: 2px solid #00ffcc;
-            display: none; padding: 15px; box-sizing: border-box;
-            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2); pointer-events: auto;
-        }
-        #speaker-name { color: #00ffcc; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
-        #dialogue-text { color: white; font-size: 16px; }
-        .next-arrow { float: right; color: #00ffcc; animation: bounce 1s infinite; }
-
-        /* HUD */
-        #hud { display: none; width: 100%; height: 100%; pointer-events: none; }
-        .top-stats {
-            position: absolute; top: 0; left: 0; width: 100%; padding: 10px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-            display: flex; justify-content: space-between; box-sizing: border-box;
-        }
-        .stat { color: #00ffcc; font-size: 20px; font-weight: bold; text-shadow: 0 0 5px #00ffcc; }
         
-        #spawn-btn {
-            position: absolute; bottom: 20px; right: 20px;
-            width: 80px; height: 80px; border-radius: 50%;
-            background: radial-gradient(circle, #003344, #001122);
-            border: 2px solid #00ffcc; color: #00ffcc; font-size: 12px; font-weight: bold;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            pointer-events: auto; box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
-            transition: transform 0.1s;
+        /* HUD & DIALOGUE */
+        #hud { position: fixed; top: 0; left: 0; width: 100%; z-index: 10; display: none; pointer-events: none; }
+        #dialogue-box { 
+            position: fixed; bottom: 20px; left: 5%; width: 90%; 
+            background: rgba(0,20,40,0.9); border: 2px solid #00ffcc;
+            padding: 15px; z-index: 20; display: none; pointer-events: auto;
         }
-        #spawn-btn:active { transform: scale(0.95); background: #00ffcc; color: black; }
-        #spawn-btn.disabled { opacity: 0.5; border-color: #555; color: #555; pointer-events: none; }
-
-        /* TUTORIAL HIGHLIGHTS */
-        .tutorial-arrow {
-            position: absolute; color: yellow; font-size: 40px; font-weight: bold;
-            animation: bounceArrow 1s infinite; text-shadow: 0 0 10px black; z-index: 50; display: none;
-        }
-
-        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; box-shadow: 0 0 25px #00ffcc; } 100% { opacity: 0.8; } }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
-        @keyframes bounceArrow { 0%, 100% { transform: translateY(0) rotate(180deg); } 50% { transform: translateY(-10px) rotate(180deg); } }
+        #error-log { position: fixed; bottom: 0; width: 100%; font-size: 10px; color: red; z-index: 1000; pointer-events: none; }
     </style>
 </head>
 <body>
 
+    <div id="error-log"></div>
+
     <div id="start-screen">
-        <h1 style="color:white; font-size: 30px; text-shadow: 0 0 20px #00ffcc; text-align:center; margin-bottom:0;">SPACE RIVALS</h1>
-        <h2 style="color:#00ffcc; font-size: 14px; letter-spacing: 5px; margin-bottom: 40px;">ECLIPSE SECTOR</h2>
-        <button id="init-btn" class="glow-btn">INITIALIZE LINK</button>
+        <h1 style="margin:0">SPACE RIVALS</h1>
+        <p style="letter-spacing:4px; margin-bottom:40px">ECLIPSE SECTOR</p>
+        <button id="main-btn" class="glow-btn">START ENGINE</button>
     </div>
 
-    <div id="cinematic-layer">
-        <div id="cinematic-text"></div>
-        <div class="skip-btn" id="skip-btn" style="display:none;">SKIP INTRO >></div>
+    <div id="hud">
+        <div style="padding:15px; font-size:24px;">⚡ <span id="flux-val">0</span></div>
+        <button id="spawn-btn" style="position:fixed; bottom:20px; right:20px; width:70px; height:70px; border-radius:50%; background:#003344; border:2px solid #00ffcc; color:#00ffcc; pointer-events:auto;">DEPLOY</button>
     </div>
 
-    <div id="ui-layer">
-        <div id="hud">
-            <div class="top-stats">
-                <div class="stat">⚡ <span id="flux-val">0</span></div>
-                <div class="stat" style="font-size:12px; margin-top:5px;">SECURE THE SECTOR</div>
-            </div>
-            <div id="spawn-btn" class="disabled">
-                <span>DEPLOY</span>
-                <span style="font-size:10px">50 FLUX</span>
-            </div>
-        </div>
-
-        <div id="dialogue-box">
-            <div id="speaker-name">COMMANDER VEX</div>
-            <div id="dialogue-text">...</div>
-            <div class="next-arrow">▼</div>
-        </div>
-    </div>
-
-    <div id="tutorial-layer">
-        <div id="tut-arrow" class="tutorial-arrow">⬇</div>
+    <div id="dialogue-box">
+        <div id="speaker" style="font-weight:bold; color:#00ffcc; font-size:12px">COMMANDER VEX</div>
+        <div id="text" style="color:white; margin:5px 0">...</div>
+        <div style="text-align:right; font-size:10px">TAP TO CONTINUE ▼</div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // --- GAME ENGINE VARIABLES ---
+        // --- LOGGING ---
+        function log(msg) { document.getElementById('error-log').innerText += msg + " | "; }
+
+        // --- CORE VARIABLES ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        let gameState = 'START'; 
-        let frameCount = 0;
-        
-        // Narrative State
-        let dialogueStep = 0;
-        const tutorialSteps = [
-            { text: "Pilot! Report in. We've dropped you into the Eclipse Sector.", action: 'read' },
-            { text: "Your ship is equipped with a Flux-Drive. Tap your Ship to select it.", action: 'select_unit' },
-            { text: "Good. Now, see that Nebula Node? Tap it to move there and secure it.", action: 'move_unit' },
-            { text: "Hold position! While you occupy the node, we harvest Flux energy.", action: 'wait_capture' },
-            { text: "Excellent. We have enough energy. Tap 'DEPLOY' to call a wingman.", action: 'spawn' },
-            { text: "You have the controls, Pilot. Capture all nodes. Don't let the Eclipse win.", action: 'play' }
-        ];
-
-        // Game Objects
+        let state = 'START';
         let flux = 0;
-        const units = [];
-        const nodes = [
-            { x: 0.5, y: 0.3, r: 40, owner: 0, progress: 0 },
-            { x: 0.2, y: 0.6, r: 40, owner: 0, progress: 0 },
-            { x: 0.8, y: 0.6, r: 40, owner: 0, progress: 0 }
-        ];
+        let units = [];
+        let nodes = [{x:0.5, y:0.4, r:40, progress:0, owner:0}];
         let stars = [];
         let selectedUnit = null;
 
-        // --- SAFE AUDIO ENGINE ---
-        let audioCtx = null;
-        let audioEnabled = false;
-
-        function initAudio() {
+        // --- BUTTON HANDLER ---
+        function handleStart() {
             try {
-                const AC = window.AudioContext || window.webkitAudioContext;
-                if (!AC) { console.log("Audio not supported"); return; }
-                
-                audioCtx = new AC();
-                
-                // Resume needed for Chrome Autoplay Policy
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
-
-                // Simple Ambient Drone (Simplified for mobile compatibility)
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.value = 55; // Low drone
-                
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                gain.gain.value = 0.05;
-                osc.start();
-                
-                audioEnabled = true;
-                startMusicSequencer();
-            } catch (e) {
-                console.log("Audio Init Failed: " + e);
-                // Game proceeds without audio
-            }
-        }
-
-        function sfx(type) {
-            if(!audioEnabled || !audioCtx) return;
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                const now = audioCtx.currentTime;
-
-                if (type === 'type') {
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(800, now);
-                    gain.gain.setValueAtTime(0.02, now);
-                    osc.stop(now + 0.05);
-                } else if (type === 'select') {
-                    osc.frequency.setValueAtTime(400, now);
-                    osc.frequency.exponentialRampToValueAtTime(1200, now+0.1);
-                    gain.gain.setValueAtTime(0.1, now);
-                    gain.gain.linearRampToValueAtTime(0, now+0.1);
-                    osc.stop(now+0.1);
-                } else if (type === 'spawn') {
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(100, now);
-                    osc.frequency.linearRampToValueAtTime(600, now+0.5);
-                    gain.gain.setValueAtTime(0.1, now);
-                    gain.gain.linearRampToValueAtTime(0, now+0.5);
-                    osc.stop(now+0.5);
-                }
-                osc.start(now);
-            } catch(e) { }
-        }
-
-        function startMusicSequencer() {
-            setInterval(() => {
-                if(!audioEnabled) return;
-                if(gameState === 'PLAY' || gameState === 'TUTORIAL') {
-                    try {
-                        const t = audioCtx.currentTime;
-                        const k = audioCtx.createOscillator();
-                        const kg = audioCtx.createGain();
-                        k.connect(kg); kg.connect(audioCtx.destination);
-                        k.frequency.setValueAtTime(150, t);
-                        k.frequency.exponentialRampToValueAtTime(0.01, t+0.2);
-                        kg.gain.setValueAtTime(0.2, t);
-                        kg.gain.exponentialRampToValueAtTime(0.01, t+0.2);
-                        k.start(t); k.stop(t+0.2);
-                        
-                        setTimeout(() => {
-                            const h = audioCtx.createOscillator();
-                            const hg = audioCtx.createGain();
-                            h.type='square'; h.connect(hg); hg.connect(audioCtx.destination);
-                            h.frequency.value = 800;
-                            hg.gain.setValueAtTime(0.05, t+0.15);
-                            hg.gain.exponentialRampToValueAtTime(0, t+0.2);
-                            h.start(t+0.15); h.stop(t+0.2);
-                        }, 175);
-                    } catch(e) {}
-                }
-            }, 350);
-        }
-
-        // --- SYSTEM INIT ---
-        function initSystem() {
-            const btn = document.getElementById('init-btn');
-            btn.innerText = "LOADING...";
-            
-            // Short delay to allow UI to update
-            setTimeout(() => {
+                log("Click Detected");
                 document.getElementById('start-screen').style.display = 'none';
-                initAudio();
-                initStars();
-                startCinematic();
-            }, 100);
+                document.getElementById('hud').style.display = 'block';
+                
+                // Initialize Stars
+                for(let i=0; i<50; i++) stars.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height, v: Math.random()*3+1});
+                
+                // Initialize Unit
+                units.push({x: canvas.width/2, y: canvas.height-100, tx: canvas.width/2, ty: canvas.height-100});
+                
+                state = 'PLAY';
+                document.getElementById('dialogue-box').style.display = 'block';
+                document.getElementById('text').innerText = "Pilot, move to the center node to begin harvesting Flux.";
+                
+                log("Game Init Success");
+                loop();
+            } catch(e) { log("Error: " + e.message); }
         }
 
-        function initStars() {
-            stars = []; // Reset
-            for(let i=0; i<100; i++) {
-                stars.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    s: Math.random() * 2,
-                    v: Math.random() * 5 + 1
+        const mainBtn = document.getElementById('main-btn');
+        mainBtn.addEventListener('click', handleStart);
+        mainBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(); });
+
+        // --- GAME LOOP ---
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        function update() {
+            flux += 0.05;
+            document.getElementById('flux-val').innerText = Math.floor(flux);
+
+            stars.forEach(s => {
+                s.y += s.v;
+                if(s.y > canvas.height) s.y = 0;
+            });
+
+            units.forEach(u => {
+                u.x += (u.tx - u.x) * 0.1;
+                u.y += (u.ty - u.y) * 0.1;
+
+                nodes.forEach(n => {
+                    let d = Math.hypot(u.x - n.x*canvas.width, u.y - n.y*canvas.height);
+                    if(d < n.r) {
+                        n.progress = Math.min(100, n.progress + 0.5);
+                        if(n.progress === 100) n.owner = 1;
+                    }
                 });
+            });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+
+            // Stars
+            ctx.fillStyle = '#fff';
+            stars.forEach(s => ctx.fillRect(s.x, s.y, 2, 2));
+
+            // Nodes
+            nodes.forEach(n => {
+                ctx.beginPath();
+                ctx.arc(n.x*canvas.width, n.y*canvas.height, n.r, 0, Math.PI*2);
+                ctx.strokeStyle = n.owner ? '#00ffcc' : '#333';
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(0,255,204,0.2)';
+                ctx.beginPath();
+                ctx.arc(n.x*canvas.width, n.y*canvas.height, n.r * (n.progress/100), 0, Math.PI*2);
+                ctx.fill();
+            });
+
+            // Units
+            units.forEach(u => {
+                ctx.fillStyle = (u === selectedUnit) ? '#fff' : '#00aadd';
+                ctx.beginPath();
+                ctx.moveTo(u.x, u.y-15);
+                ctx.lineTo(u.x+10, u.y+10);
+                ctx.lineTo(u.x-10, u.y+10);
+                ctx.fill();
+            });
+        }
+
+        // --- INPUTS ---
+        canvas.addEventListener('pointerdown', (e) => {
+            const u = units.find(u => Math.hypot(u.x - e.clientX, u.y - e.clientY) < 40);
+            if(u) selectedUnit = u;
+            else if(selectedUnit) {
+                selectedUnit.tx = e.clientX;
+                selectedUnit.ty = e.clientY;
             }
-        }
-
-        // --- CINEMATIC SYSTEM ---
-        function startCinematic() {
-            gameState = 'CINEMATIC';
-            document.getElementById('skip-btn').style.display = 'block';
-            
-            const texts = [
-                "SYSTEM REBOOT...", 
-                "CONNECTING TO VANGUARD NETWORK...", 
-                "LOCATION: ECLIPSE NEBULA", 
-                "MISSION: CLASSIFIED"
-            ];
-            
-            let line = 0;
-            const el = document.getElementById('cinematic-text');
-            
-            const interval = setInterval(() => {
-                if(gameState !== 'CINEMATIC') { clearInterval(interval); return; }
-                if(line >= texts.length) {
-                    clearInterval(interval);
-                    setTimeout(endCinematic, 2000);
-                    return;
-                }
-                el.innerText = texts[line];
-                el.style.opacity = 1;
-                sfx('type');
-                setTimeout(() => { el.style.opacity = 0; }, 2500);
-                line++;
-            }, 3000);
-        }
-
-        function endCinematic() {
-            gameState = 'TUTORIAL';
-            document.getElementById('cinematic-layer').style.display = 'none';
-            document.getElementById('hud').style.display = 'block';
-            // Reset player unit
-            units.length = 0;
-            units.push({id:1, x: canvas.width/2, y: canvas.height-100, tx: canvas.width/2, ty: canvas.height-100, type: 'fighter'});
-            showDialogue(0);
-        }
-
-        // --- EVENT LISTENERS (SAFER) ---
-        // We use addEventListener instead of onclick to ensure DOM is ready
-        window.addEventListener('load', () => {
-            document.getElementById('init-btn').addEventListener('click', initSystem);
-            document.getElementById('skip-btn').addEventListener('click', endCinematic);
-            document.getElementById('spawn-btn').addEventListener('click', spawnUnit);
-            document.getElementById('dialogue-box').addEventListener('click', advanceDialogue);
         });
 
-        // --- NARRATIVE / TUTORIAL SYSTEM ---
-        function showDialogue(index) {
-            dialogueStep = index;
-            const box = document.getElementById('dialogue-box');
-            const txt = document.getElementById('dialogue-text');
-            const step = tutorialSteps[index];
-            
-            box.style.display = 'block';
-            txt.innerText = "";
-            
-            let char = 0;
-            const typeTimer = setInterval(() => {
-                txt.innerText += step.text[char];
-                sfx('type');
-                char++;
-                if(char >= step.text.length) clearInterval(typeTimer);
-            }, 30);
+        document.getElementById('dialogue-box').addEventListener('click', () => {
+            document.getElementById('dialogue-box').style.display = 'none';
+        });
 
-            handleTutorialState(step.action);
-        }
+        document.getElementById('spawn-btn').addEventListener('click', () => {
+            if(flux >= 50) {
+                flux -= 50;
+                units.push({x: canvas.width/2, y: canvas.height, tx: canvas.width/2, ty: canvas.height-100});
+            }
+        });
 
-        function handleTutorialState(action) {
-            const arrow = document.getElementById('tut-arrow');
-            arrow.style.display = 'none';
-
-            if (action === 'select_unit') {
-                const u = units[0];
-                if(u) {
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.onresize = resize;
+        resize();
+    </script>
+</body>
+</html>

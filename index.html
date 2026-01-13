@@ -5,42 +5,68 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>DreDarkroom — Games</title>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 2rem; background:#0f1724; color:#e6eef8; }
-    .card { background:#0b1220; border:1px solid rgba(255,255,255,0.04); padding:1rem; border-radius:8px; max-width:720px; margin:0 auto; }
-    h1 { margin-top:0; }
-    ul { list-style:none; padding:0; }
-    a { color:#7dd3fc; text-decoration:none; }
+    :root{--bg:#070709;--card:#0b1220;--muted:#9fb3c8;--accent-cyan:#7dd3fc;--accent-red:#ef4444;--accent-dark:#0b0b0b}
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 0; background: linear-gradient(180deg,#050507 0%, #0f1724 100%); color:#e6eef8; }
+    .wrap { max-width:960px; margin:2rem auto; padding:1rem; }
+    .card { background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.03); padding:1.25rem; border-radius:12px; }
+    header.hero { display:flex; align-items:center; gap:1rem; background: linear-gradient(90deg, rgba(239,68,68,0.06), rgba(0,0,0,0.2)); padding:1rem; border-radius:10px; margin-bottom:1rem; border:1px solid rgba(239,68,68,0.12); }
+    .logo { width:68px; height:68px; border-radius:10px; background:linear-gradient(135deg, #111, #000); display:flex; align-items:center; justify-content:center; box-shadow: 0 6px 20px rgba(239,68,68,0.12), inset 0 -6px 20px rgba(0,0,0,0.6); }
+    .logo span { font-weight:900; color:#fff; letter-spacing:1px; font-size:20px; text-shadow:0 2px 10px rgba(239,68,68,0.6); }
+    .hero-content { flex:1; }
+    .hero h1 { margin:0; font-size:1.25rem; color:#fff; letter-spacing:0.6px; }
+    .hero p { margin:0.25rem 0 0; color:var(--muted); font-size:0.95rem; }
+    .big-link { display:inline-block; margin-top:0.75rem; padding:0.8rem 1.1rem; background:linear-gradient(90deg,#ef4444,#b91c1c); color:#fff; font-weight:800; border-radius:10px; text-decoration:none; font-size:1.05rem; box-shadow: 0 10px 30px rgba(239,68,68,0.18), 0 2px 0 rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.04); }
+    .big-link:hover { transform:translateY(-2px); box-shadow: 0 18px 40px rgba(239,68,68,0.22); }
+
+    h1.page { margin-top:0; }
+    ul { list-style:none; padding:0; margin:0; }
+    a { color:var(--accent-cyan); text-decoration:none; }
     a.button {
       display:inline-block; padding:0.5rem 0.75rem; background:#0ea5a6; color:#042027; border-radius:6px; margin-top:0.5rem;
       text-decoration:none; font-weight:600;
     }
-    .meta { font-size:0.9rem; color:#9fb3c8; margin-bottom:0.75rem; }
+    .meta { font-size:0.9rem; color:var(--muted); margin-bottom:0.75rem; }
+    hr.sep { margin:1.5rem 0; border-color: rgba(255,255,255,0.04); }
+
+    /* Responsive */
+    @media (max-width:640px){ .logo{width:52px;height:52px}.big-link{width:100%;text-align:center} header.hero{flex-direction:row;gap:0.75rem} }
   </style>
 </head>
 <body>
-  <main class="card" role="main">
-    <h1>DreDarkroom — Games</h1>
-    <p class="meta">Choose a version to play. You can return to this index at any time.</p>
+  <div class="wrap">
+    <main class="card" role="main">
+      <header class="hero">
+        <div class="logo" aria-hidden="true"><span>DD</span></div>
+        <div class="hero-content">
+          <h1>DreDarkroom — Spacerivals</h1>
+          <p class="meta">A DreDarkroom DJ / gamer themed experience — black & red, bold, and designed for Twitch stream vibes.</p>
+          <a class="big-link" href="./spacerivals.html">Play Spacerivals</a>
+        </div>
+      </header>
 
-    <ul>
-      <li>
-        <strong>Version 1</strong><br />
-        The original release of the game (renamed from the previous root file).<br />
-        <a class="button" href="./index_v1.html">Play Version 1</a>
-      </li>
+      <h1 class="page">DreDarkroom — Games</h1>
+      <p class="meta">Choose a version to play. You can return to this index at any time.</p>
 
-      <li style="margin-top:1rem;">
-        <strong>Flux v2</strong><br />
-        The updated Flux release (newer version).<br />
-        <a class="button" href="./flux.html">Play Flux v2</a>
-      </li>
-    </ul>
+      <ul>
+        <li>
+          <strong>Version 1</strong><br />
+          The original release of the game (renamed from the previous root file).<br />
+          <a class="button" href="./index_v1.html">Play Version 1</a>
+        </li>
 
-    <hr style="margin:1.5rem 0; border-color: rgba(255,255,255,0.04)">
+        <li style="margin-top:1rem;">
+          <strong>Flux v2</strong><br />
+          The updated Flux release (newer version).<br />
+          <a class="button" href="./flux.html">Play Flux v2</a>
+        </li>
+      </ul>
 
-    <p style="font-size:0.9rem; color:#9fb3c8;">
-      If you want different labels or different filenames, tell me how you want them named and I will apply the rename and add the new index file.
-    </p>
-  </main>
+      <hr class="sep">
+
+      <p style="font-size:0.9rem; color:var(--muted);">
+        If you want different labels or different filenames, tell me how you want them named and I will apply the rename and add the new index file.
+      </p>
+    </main>
+  </div>
 </body>
 </html>

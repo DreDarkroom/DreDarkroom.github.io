@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>SPACE RIVALS: Eclipse Sector</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', monospace; user-select: none; }
+        canvas { display: block; }
+        
+        /* UI LAYERS */
+        #cinematic-layer, #ui-layer, #tutorial-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+        }
+        
+        /* START BUTTON */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;
+        }
+        .glow-btn {
+            background: transparent; border: 2px solid #00ffcc; color: #00ffcc;
+            padding: 20px 40px; font-size: 18px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 0 15px #00ffcc; text-transform: uppercase;
+            animation: pulse 2s infinite;
+        }
+
+        /* CINEMATICS */
+        #cinematic-text {
+            position: absolute; width: 80%; left: 10%; text-align: center;
+            color: #00ffcc; font-size: 18px; line-height: 1.6;
+            text-shadow: 0 0 10px #00ffcc; opacity: 0; transition: opacity 1s;
+            top: 40%; transform: translateY(-50%);
+        }
+        .skip-btn {
+            position: absolute; bottom: 20px; right: 20px; color: #555; border: 1px solid #555;
+            padding: 10px; pointer-events: auto; font-size: 12px;
+        }
+
+        /* DIALOGUE BOX */
+        #dialogue-box {
+            position: absolute; bottom: 20px; left: 5%; width: 90%;
+            background: rgba(0, 20, 30, 0.95); border: 2px solid #00ffcc;
+            display: none; padding: 15px; box-sizing: border-box;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2); pointer-events: auto;
+        }
+        #speaker-name { color: #00ffcc; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+        #dialogue-text { color: white; font-size: 16px; }
+        .next-arrow { float: right; color: #00ffcc; animation: bounce 1s infinite; }
+
+        /* GAME HUD */
+        #hud { display: none; width: 100%; height: 100%; pointer-events: none; }
+        .top-stats {
+            position: absolute; top: 0; left: 0; width: 100%; padding: 10px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            display: flex; justify-content: space-between; box-sizing: border-box;
+        }
+        .stat { color: #00ffcc; font-size: 20px; font-weight: bold; text-shadow: 0 0 5px #00ffcc; }
+        
+        #spawn-btn {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 80px; height: 80px; border-radius: 50%;
+            background: radial-gradient(circle, #003344, #001122);
+            border: 2px solid #00ffcc; color: #00ffcc; font-size: 12px; font-weight: bold;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            pointer-events: auto; box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
+            transition: transform 0.1s;
+        }
+        #spawn-btn:active { transform: scale(0.95); background: #00ffcc; color: black; }
+        #spawn-btn.disabled { opacity: 0.5; border-color: #555; color: #555; pointer-events: none; }
+
+        /* TUTORIAL HIGHLIGHTS */
+        .tutorial-arrow {
+            position: absolute; color: yellow; font-size: 40px; font-weight: bold;
+            animation: bounceArrow 1s infinite; text-shadow: 0 0 10px black; z-index: 50; display: none;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; box-shadow: 0 0 25px #00ffcc; } 100% { opacity: 0.8; } }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+        @keyframes bounceArrow { 0%, 100% { transform: translateY(0) rotate(180deg); } 50% { transform: translateY(-10px) rotate(180deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h1 style="color:white; font-size: 40px; text-shadow: 0 0 20px #00ffcc; text-align:center; margin-bottom:0;">SPACE RIVALS</h1>
+        <h2 style="color:#00ffcc; font-size: 14px; letter-spacing: 5px; margin-bottom: 40px;">ECLIPSE SECTOR</h2>
+        <button class="glow-btn" onclick="initSystem()">INITIALIZE LINK</button>
+    </div>
+
+    <div id="cinematic-layer">
+        <div id="cinematic-text"></div>
+        <div class="skip-btn" id="skip-btn" style="display:none;" onclick="skipCinematic()">SKIP INTRO >></div>
+    </div>
+
+    <div id="ui-layer">
+        <div id="hud">
+            <div class="top-stats">
+                <div class="stat">⚡ <span id="flux-val">0</span></div>
+                <div class="stat" style="font-size:12px; margin-top:5px;">SECURE THE SECTOR</div>
+            </div>
+            <div id="spawn-btn" class="disabled" onclick="spawnUnit()">
+                <span>DEPLOY</span>
+                <span style="font-size:10px">50 FLUX</span>
+            </div>
+        </div>
+
+        <div id="dialogue-box" onclick="advanceDialogue()">
+            <div id="speaker-name">COMMANDER VEX</div>
+            <div id="dialogue-text">...</div>
+            <div class="next-arrow">▼</div>
+        </div>
+    </div>
+
+    <div id="tutorial-layer">
+        <div id="tut-arrow" class="tutorial-arrow">⬇</div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // --- GAME ENGINE VARIABLES ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let gameState = 'START'; // START, CINEMATIC, TUTORIAL, PLAY
+        let frameCount = 0;
+        
+        // Narrative State
+        let dialogueStep = 0;
+        const tutorialSteps = [
+            { text: "Pilot! Report in. We've dropped you into the Eclipse Sector.", action: 'read' },
+            { text: "Your ship is equipped with a Flux-Drive. Tap your Ship to select it.", action: 'select_unit' },
+            { text: "Good. Now, see that Nebula Node? Tap it to move there and secure it.", action: 'move_unit' },
+            { text: "Hold position! While you occupy the node, we harvest Flux energy.", action: 'wait_capture' },
+            { text: "Excellent. We have enough energy. Tap 'DEPLOY' to call a wingman.", action: 'spawn' },
+            { text: "You have the controls, Pilot. Capture all nodes. Don't let the Eclipse win.", action: 'play' }
+        ];
+
+        // Game Objects
+        let flux = 0;
+        const units = [];
+        const nodes = [
+            { x: 0.5, y: 0.3, r: 40, owner: 0, progress: 0 }, // 0=Neutral, 1=Player
+            { x: 0.2, y: 0.6, r: 40, owner: 0, progress: 0 },
+            { x: 0.8, y: 0.6, r: 40, owner: 0, progress: 0 }
+        ];
+        let stars = [];
+        let selectedUnit = null;
+
+        // --- AUDIO ENGINE (Space Ambient + DnB) ---
+        let audioCtx;
+        function initAudio() {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AC();
+            // Start Ambient Drone
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.value = 50; // Deep drone
+            osc.type = 'sawtooth';
+            const lfo = audioCtx.createOscillator();
+            lfo.frequency.value = 0.2;
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 500;
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+            
+            // Filter
+            const filter =

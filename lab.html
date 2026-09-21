@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Lab · Dre Darklabs</title>
+<meta name="description" content="Pick an instrument: MeowSynth, MonkeyBeat, or load both on one page.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2214%22 fill=%22%23060607%22/><text x=%2250%22 y=%2268%22 font-size=%2258%22 font-family=%22monospace%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22%23ff2f4e%22>DD</text></svg>">
+<link rel="stylesheet" href="hub.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header class="bar">
+    <a class="brand" href="./"><b>DD</b><span>DREDARKROOM</span></a>
+    <nav aria-label="Site">
+      <a href="./">&larr; Home</a>
+      <a href="./#archive">Older projects</a>
+    </nav>
+  </header>
+
+  <div class="lab-head">
+    <h1>THE LAB<span class="blink">_</span></h1>
+    <p>pick an instrument, or run both at once</p>
+  </div>
+
+  <div class="picker" role="group" aria-label="Choose what to load">
+    <button class="pick" data-mode="meowsynth" aria-pressed="false">
+      <span class="ico">    /\_/\
+   ( o.o )
+    &gt; ^ &lt;</span>
+      <strong>MeowSynth</strong>
+      <span class="d">chromatic keyboard + mood pads, all from human meows</span>
+    </button>
+    <button class="pick" data-mode="monkeybeat" aria-pressed="false">
+      <span class="ico alt">   .--"""--.
+,-/  o o  \-,
+(  |  ^  |  )</span>
+      <strong>MonkeyBeat</strong>
+      <span class="d">drum machine: sequencer, pads, WAV / MIDI export</span>
+    </button>
+    <button class="pick both" data-mode="both" aria-pressed="false">
+      <span class="ico">  /\_/\  .--"--.
+ ( o.o )( o o )
+  &gt; ^ &lt;  '-^-'</span>
+      <strong>Both together</strong>
+      <span class="d">side by side on one page (stacked on phones)</span>
+    </button>
+  </div>
+  <p class="hint" id="hint">each instrument wakes with its own button (browsers need a click before any sound).</p>
+
+  <main class="stage" id="stage">
+    <section class="panel" id="p-meowsynth" hidden aria-label="MeowSynth">
+      <div class="p-head"><b>MEOWSYNTH</b><span class="acts"><a href="/darklabs/" target="_blank" rel="noopener">open full page &#8599;</a><button type="button" data-unload="meowsynth">unload</button></span></div>
+      <div class="frame-slot"></div>
+    </section>
+    <section class="panel" id="p-monkeybeat" hidden aria-label="MonkeyBeat">
+      <div class="p-head"><b>MONKEYBEAT</b><span class="acts"><a href="/darklabs/monkeybeat/" target="_blank" rel="noopener">open full page &#8599;</a><button type="button" data-unload="monkeybeat">unload</button></span></div>
+      <div class="frame-slot"></div>
+    </section>
+  </main>
+</div>
+
+<footer>&copy; DreDarkroom · instruments live in <a href="/darklabs/">/darklabs</a></footer>
+
+<script>
+(function () {
+  var SRC = { meowsynth: "/darklabs/", monkeybeat: "/darklabs/monkeybeat/" };
+  var stage = document.getElementById("stage");
+  var hint = document.getElementById("hint");
+  var picks = [].slice.call(document.querySelectorAll(".pick"));
+  var HINT_IDLE = "each instrument wakes with its own button (browsers need a click before any sound).";
+  var HINT_BOTH = "both apps use the same computer-keyboard keys, so keys go to the panel you clicked last (it glows). Switching modes unloads the instrument that is hidden.";
+
+  function slot(name) { return document.querySelector("#p-" + name + " .frame-slot"); }
+  function panel(name) { return document.getElementById("p-" + name); }
+
+  function fit(frame) {
+    // Same origin (both live under dredarkroom.github.io), so the frame can be measured.
+    try {
+      var d = frame.contentDocument;
+      if (!d || !d.documentElement) return;
+      var h = Math.max(d.documentElement.scrollHeight, d.body ? d.body.scrollHeight : 0);
+      if (h > 200) frame.style.height = h + "px";
+    } catch (e) { /* cross-origin: fall back to the CSS min-height */ }
+  }
+
+  function load(name) {
+    var s = slot(name);
+    if (s.firstChild) return;
+    var f = document.createElement("iframe");
+    f.title = name === "meowsynth" ? "MeowSynth" : "MonkeyBeat";
+    f.setAttribute("allow", "autoplay; midi; fullscreen");
+    f.setAttribute("loading", "lazy");
+    f.src = SRC[name];
+    f.addEventListener("load", function () {
+      fit(f);
+      try {
+        var d = f.contentDocument;
+        if (window.ResizeObserver && d && d.body) new ResizeObserver(function () { fit(f); }).observe(d.body);
+        d.addEventListener("click", function () { setTimeout(function () { fit(f); }, 300); });
+      } catch (e) {}
+    });
+    s.appendChild(f);
+  }
+
+  function unload(name) {
+    var s = slot(name);
+    while (s.firstChild) s.removeChild(s.firstChild); // removing the frame stops its audio
+    panel(name).classList.remove("active");
+  }
+
+  function setMode(mode, silent) {
+    var want = mode === "both" ? ["meowsynth", "monkeybeat"] : (SRC[mode] ? [mode] : []);
+    ["meowsynth", "monkeybeat"].forEach(function (n) {
+      var on = want.indexOf(n) > -1;
+      panel(n).hidden = !on;
+      if (on) load(n); else unload(n);
+    });
+    stage.classList.toggle("two", want.length === 2);
+    picks.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.mode === mode)); });
+    hint.textContent = mode === "both" ? HINT_BOTH : HINT_IDLE;
+    if (!silent) {
+      if (history.replaceState) history.replaceState(null, "", "#" + mode); else location.hash = mode;
+      if (want.length) stage.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  picks.forEach(function (b) { b.addEventListener("click", function () { setMode(b.dataset.mode); }); });
+  [].slice.call(document.querySelectorAll("[data-unload]")).forEach(function (b) {
+    b.addEventListener("click", function () {
+      var n = b.dataset.unload;
+      var was = panel(n).hidden;
+      unload(n); load(n); // reload = fresh start, stops any running audio
+      if (was) panel(n).hidden = false;
+    });
+  });
+
+  // Keys only reach the focused frame, so show which panel has them.
+  window.addEventListener("blur", function () {
+    setTimeout(function () {
+      var a = document.activeElement;
+      ["meowsynth", "monkeybeat"].forEach(function (n) {
+        panel(n).classList.toggle("active", !!a && a.tagName === "IFRAME" && panel(n).contains(a));
+      });
+    }, 0);
+  });
+  window.addEventListener("focus", function () {
+    ["meowsynth", "monkeybeat"].forEach(function (n) { panel(n).classList.remove("active"); });
+  });
+
+  function fromHash() {
+    var m = (location.hash || "").replace("#", "");
+    if (m === "meowsynth" || m === "monkeybeat" || m === "both") setMode(m, true);
+  }
+  window.addEventListener("hashchange", fromHash);
+  fromHash();
+})();
+</script>
+</body>
+</html>
